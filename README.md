@@ -206,16 +206,13 @@ HomeHarvest-code-bundle/
 ## 📸 Application Screenshots
 
 ### Home Page
-![HomeHarvest homepage](screenshots/01-homepage.png)
+![HomeHarvest homepage](01-homepage.png)
 
 ### Explore Vegetables
-![Vegetable marketplace](screenshots/02-explore-vegetables.png)
+![Vegetable marketplace](02-explore-vegetables.png)
 
 ### Login Page
-![Login page](screenshots/03-login.png)
-
-### GitHub Repository
-![Public GitHub repository](screenshots/04-github-repository.png)
+![Login page](03-login.png)
 
 ---
 
