@@ -195,3 +195,44 @@ HomeHarvest-code-bundle/
 - **Server-Side Validation:** All prices, stock decrements, and order totals calculated on the backend using `express-validator` and Mongoose schema checks.
 - **Safe DOM Rendering:** Front-end strictly avoids dangerous innerHTML injection from unsanitized user content.
 - **HTTP Security Headers:** Protected with `helmet`.
+
+
+
+
+
+
+---
+
+## 📸 Application Screenshots
+
+### Home Page
+![HomeHarvest homepage](screenshots/01-homepage.png)
+
+### Explore Vegetables
+![Vegetable marketplace](screenshots/02-explore-vegetables.png)
+
+### Login Page
+![Login page](screenshots/03-login.png)
+
+### GitHub Repository
+![Public GitHub repository](screenshots/04-github-repository.png)
+
+---
+
+## 🎓 Learning Outcomes
+
+- Developed a full-stack web application using HTML, CSS, JavaScript, Node.js, Express, and MongoDB.
+- Learned REST API development and database integration.
+- Practiced authentication, password hashing, and role-based access control.
+- Learned Git and GitHub for source-code management and project documentation.
+
+## 👨‍💻 Author
+
+**Student Name:** [Your Full Name]  
+**USN:** [Your USN]  
+**Project:** HomeHarvest — Hyperlocal Home-Grown Vegetable Marketplace
+
+## 📌 Project Status
+
+Academic project prototype. Features and test results should be verified
+against the running application before submission.
