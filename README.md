@@ -227,6 +227,7 @@ HomeHarvest-code-bundle/
 
 **Student Name:** Challa Sravani  
 **USN:** 1NH23CS059
+
 **Project:** HomeHarvest — Hyperlocal Home-Grown Vegetable Marketplace
 
 ## 📌 Project Status
