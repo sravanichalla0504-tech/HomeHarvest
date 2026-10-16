@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — HomeHarvest</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js" defer></script>
+  <script src="js/navbar.js" defer></script>
+</head>
+<body>
+  <header class="navbar"></header>
+
+  <main class="section">
+    <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-xl); padding:36px; margin-bottom:30px; box-shadow:var(--shadow-sm);">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+        <div>
+          <span class="section-eyebrow" id="userRoleBadge">CUSTOMER ACCOUNT</span>
+          <h1 id="welcomeHeading" style="font-size:32px; font-weight:800; letter-spacing:-0.5px; margin-bottom:6px;">
+            Welcome back!
+          </h1>
+          <p id="userSubtext" style="color:var(--text-muted);">Explore fresh terrace & balcony harvests available in your neighborhood.</p>
+        </div>
+        <div style="display:flex; gap:10px;" id="quickActionButtons">
+          <a href="/explore.html" class="btn btn-primary">🥦 Explore Vegetables</a>
+          <a href="/orders.html" class="btn btn-secondary">📦 My Orders</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECENT ORDERS SECTION -->
+    <div style="margin-bottom:40px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 style="font-size:20px; font-weight:800;">Recent Orders</h2>
+        <a href="/orders.html" style="font-weight:700; color:var(--primary); font-size:14px;">View All →</a>
+      </div>
+      <div id="recentOrdersList">
+        <p style="color:var(--text-muted);">Loading recent orders...</p>
+      </div>
+    </div>
+
+    <!-- LOCAL GROWERS SPOTLIGHT -->
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 style="font-size:20px; font-weight:800;">Neighborhood Home Gardeners</h2>
+        <a href="/explore.html" style="font-weight:700; color:var(--primary); font-size:14px;">Browse Catalog →</a>
+      </div>
+      <div class="product-grid" id="growersSpotlight">
+        <p style="color:var(--text-muted);">Loading neighborhood growers...</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      const user = currentUser();
+      if (!user) {
+        location.href = "/login.html";
+        return;
+      }
+
+      // Route specialized roles automatically to their respective management hubs
+      if (user.role === "grower") {
+        location.href = "/grower-dashboard.html";
+        return;
+      } else if (user.role === "delivery") {
+        location.href = "/delivery-dashboard.html";
+        return;
+      } else if (user.role === "admin") {
+        location.href = "/admin-dashboard.html";
+        return;
+      }
+
+      // Customer Dashboard population
+      document.getElementById("welcomeHeading").textContent = `Welcome, ${user.name}!`;
+      document.getElementById("userRoleBadge").textContent = `${user.neighborhood ? user.neighborhood.toUpperCase() + ' · ' : ''}CUSTOMER`;
+
+      loadRecentOrders();
+      loadGrowersSpotlight();
+    });
+
+    async function loadRecentOrders() {
+      const el = document.getElementById("recentOrdersList");
+      try {
+        const res = await API.get("/api/orders/mine");
+        const orders = (res.orders || []).slice(0, 3);
+
+        if (!orders.length) {
+          el.innerHTML = `
+            <div style="background:#fff; border:1px solid var(--border); border-radius:14px; padding:32px; text-align:center;">
+              <span style="font-size:36px;">🛒</span>
+              <h3 style="margin:10px 0 6px;">You haven't placed any harvest orders yet</h3>
+              <p style="color:var(--text-muted); font-size:14px; margin-bottom:16px;">Support a local home gardener today with fresh vegetables.</p>
+              <a href="/explore.html" class="btn btn-primary btn-sm">Explore Vegetables</a>
+            </div>
+          `;
+          return;
+        }
+
+        el.innerHTML = orders.map(o => `
+          <div style="background:#fff; border:1px solid var(--border); border-radius:14px; padding:18px 24px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+                <strong>Order #${o._id.slice(-6).toUpperCase()}</strong>
+                <span class="status-chip status-${o.status}">${o.status.replace(/_/g, " ")}</span>
+              </div>
+              <p style="font-size:13px; color:var(--text-muted);">
+                ${o.items.map(i => `${escapeHTML(i.name)} (${i.quantity})`).join(", ")}
+              </p>
+              <small style="color:var(--text-light); font-size:12px;">Placed on ${formatDate(o.createdAt)}</small>
+            </div>
+            <div style="display:flex; align-items:center; gap:16px;">
+              <strong style="font-size:18px; color:var(--primary);">₹${o.totalAmount}</strong>
+              <a href="/order-details.html?id=${o._id}" class="btn btn-secondary btn-sm">Track Order</a>
+            </div>
+          </div>
+        `).join("");
+      } catch (e) {
+        el.innerHTML = `<p style="color:var(--danger);">Error loading orders: ${escapeHTML(e.message)}</p>`;
+      }
+    }
+
+    async function loadGrowersSpotlight() {
+      const el = document.getElementById("growersSpotlight");
+      try {
+        const res = await API.get("/api/growers");
+        const growers = (res.growers || []).slice(0, 3);
+
+        if (!growers.length) {
+          el.innerHTML = `<p style="color:var(--text-muted);">No grower profiles listed.</p>`;
+          return;
+        }
+
+        el.innerHTML = growers.map(g => `
+          <div style="background:#fff; border:1px solid var(--border); border-radius:16px; padding:24px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+              <span style="font-size:32px;">🪴</span>
+              <span class="badge badge-verified">? ${g.gardenType}</span>
+            </div>
+            <h3 style="font-size:18px; color:var(--primary); font-weight:800; margin-bottom:4px;">
+              ${escapeHTML(g.gardenName)}
+            </h3>
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:12px;">
+              ${escapeHTML(g.userId?.name || "Grower")} · ${escapeHTML(g.neighborhood)}
+            </p>
+            <p style="font-size:13px; color:var(--text); line-height:1.5; margin-bottom:16px;">
+              ${escapeHTML(g.gardenDescription ? g.gardenDescription.slice(0, 110) + '...' : 'Fresh terrace garden produce.')}
+            </p>
+            <a href="/explore.html?neighborhood=${encodeURIComponent(g.neighborhood)}" class="btn btn-sage btn-sm" style="width:100%;">
+              View Vegetables from this Garden
+            </a>
+          </div>
+        `).join("");
+      } catch (e) {
+        el.innerHTML = `<p style="color:var(--danger);">${escapeHTML(e.message)}</p>`;
+      }
+    }
+  </script>
+</body>
+</html>

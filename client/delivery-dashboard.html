@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delivery Dispatch — HomeHarvest</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js" defer></script>
+  <script src="js/navbar.js" defer></script>
+</head>
+<body>
+  <header class="navbar"></header>
+
+  <main class="section">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:28px;">
+      <div>
+        <span class="section-eyebrow">DELIVERY DISPATCH BOARD</span>
+        <h1 style="font-size:32px; font-weight:800; letter-spacing:-0.5px;">Neighborhood Deliveries</h1>
+        <p style="color:var(--text-muted);">Pick up fresh vegetables from home gardens and deliver to nearby households.</p>
+      </div>
+      <button onclick="refreshDeliveries()" class="btn btn-secondary btn-sm">🔄 Refresh Jobs</button>
+    </div>
+
+    <!-- ACTIVE ASSIGNMENTS -->
+    <div style="margin-bottom:40px;">
+      <h2 style="font-size:22px; font-weight:800; margin-bottom:16px;">My Active Deliveries</h2>
+      <div class="table-card">
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Order Ref</th>
+                <th>Garden Pickup Location</th>
+                <th>Customer Drop Address</th>
+                <th>COD Collect</th>
+                <th>Current Status</th>
+                <th>Dispatch Action</th>
+              </tr>
+            </thead>
+            <tbody id="myDeliveriesTableBody">
+              <tr>
+                <td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">Loading active tasks...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- AVAILABLE PICKUPS TO CLAIM -->
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 style="font-size:22px; font-weight:800;">Available Pickups (Ready at Gardens)</h2>
+        <span class="badge badge-verified" id="availCountBadge">0 Available</span>
+      </div>
+
+      <div class="table-card">
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Order Ref</th>
+                <th>Grower / Pickup</th>
+                <th>Destination</th>
+                <th>Produce Items</th>
+                <th>COD to Collect</th>
+                <th>Claim</th>
+              </tr>
+            </thead>
+            <tbody id="availableTableBody">
+              <tr>
+                <td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">Checking for ready garden orders...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const user = currentUser();
+      if (!user || !["delivery", "admin"].includes(user.role)) {
+        showToast("Access restricted to delivery partners.", "error");
+        setTimeout(() => { location.href = "/login.html"; }, 1000);
+        return;
+      }
+
+      refreshDeliveries();
+    });
+
+    async function refreshDeliveries() {
+      loadMyDeliveries();
+      loadAvailableDeliveries();
+    }
+
+    async function loadMyDeliveries() {
+      const tbody = document.getElementById("myDeliveriesTableBody");
+      try {
+        const res = await API.get("/api/deliveries/mine");
+        const list = res.deliveries || [];
+
+        const activeList = list.filter(d => ["assigned", "accepted", "picked_up"].includes(d.status));
+
+        if (!activeList.length) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">No active deliveries in progress. Claim a job below!</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = activeList.map(d => {
+          const order = d.orderId;
+          if (!order) return "";
+
+          let actionBtn = "";
+          if (d.status === "accepted" || d.status === "assigned") {
+            actionBtn = `<button onclick="updateDeliveryStatus('${d._id}', 'picked_up')" class="btn btn-sage btn-sm">📦 Confirm Garden Pickup</button>`;
+          } else if (d.status === "picked_up") {
+            actionBtn = `<button onclick="updateDeliveryStatus('${d._id}', 'delivered')" class="btn btn-primary btn-sm">? Delivered & Collected COD</button>`;
+          }
+
+          const grower = order.items?.[0]?.growerId;
+
+          return `
+            <tr>
+              <td><strong>#${order._id.slice(-6).toUpperCase()}</strong></td>
+              <td>
+                <strong>🌱 ${escapeHTML(grower?.name || "Grower")}</strong>
+                <div style="font-size:12px; color:var(--text-muted);">${escapeHTML(grower?.address || grower?.neighborhood || "Indiranagar")}</div>
+                <div style="font-size:11px; color:var(--accent);">?? ${escapeHTML(grower?.phone || "")}</div>
+              </td>
+              <td>
+                <strong>${escapeHTML(order.customerId?.name || "Customer")}</strong>
+                <div style="font-size:12px; color:var(--text-muted);">${escapeHTML(order.deliveryAddress)}</div>
+                <div style="font-size:11px; color:var(--accent);">?? ${escapeHTML(order.deliveryPhone || order.customerId?.phone || "")}</div>
+              </td>
+              <td><strong style="color:var(--primary); font-size:16px;">₹${order.totalAmount}</strong></td>
+              <td><span class="status-chip status-${d.status}">${d.status.replace(/_/g, " ")}</span></td>
+              <td>${actionBtn}</td>
+            </tr>
+          `;
+        }).join("");
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:var(--danger); text-align:center;">${escapeHTML(e.message)}</td></tr>`;
+      }
+    }
+
+    async function loadAvailableDeliveries() {
+      const tbody = document.getElementById("availableTableBody");
+      try {
+        const res = await API.get("/api/deliveries/available");
+        const list = res.deliveries || [];
+        document.getElementById("availCountBadge").textContent = `${list.length} Ready`;
+
+        if (!list.length) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">No orders currently waiting for pickup. Fresh harvests are preparing!</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = list.map(d => {
+          const order = d.orderId;
+          if (!order) return "";
+          const grower = order.items?.[0]?.growerId;
+
+          return `
+            <tr>
+              <td><strong>#${order._id.slice(-6).toUpperCase()}</strong></td>
+              <td>
+                <strong>🌱 ${escapeHTML(grower?.name || "Grower")}</strong>
+                <div style="font-size:12px; color:var(--text-muted);">${escapeHTML(grower?.neighborhood || "Nearby")}</div>
+              </td>
+              <td>
+                <div style="font-size:13px;">${escapeHTML(order.deliveryAddress)}</div>
+              </td>
+              <td>
+                <small style="color:var(--text-muted);">${order.items.map(i => `${escapeHTML(i.name)} (${i.quantity})`).join(", ")}</small>
+              </td>
+              <td><strong style="color:var(--primary);">₹${order.totalAmount}</strong></td>
+              <td>
+                <button onclick="claimDelivery('${d._id}')" class="btn btn-primary btn-sm">
+                  Claim Job
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:var(--danger); text-align:center;">${escapeHTML(e.message)}</td></tr>`;
+      }
+    }
+
+    async function claimDelivery(deliveryId) {
+      try {
+        await API.post(`/api/deliveries/${deliveryId}/accept`, {});
+        showToast("Delivery job claimed! Head to the home garden for pickup.", "success");
+        refreshDeliveries();
+      } catch (e) {
+        // handled
+      }
+    }
+
+    async function updateDeliveryStatus(deliveryId, nextStatus) {
+      try {
+        await API.patch(`/api/deliveries/${deliveryId}/status`, { status: nextStatus });
+        showToast(`Delivery status updated to ${nextStatus}`, "success");
+        refreshDeliveries();
+      } catch (e) {
+        // handled
+      }
+    }
+  </script>
+</body>
+</html>

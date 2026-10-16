@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grower Portal — HomeHarvest</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js" defer></script>
+  <script src="js/navbar.js" defer></script>
+</head>
+<body>
+  <header class="navbar"></header>
+
+  <main class="section">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:30px;">
+      <div>
+        <span class="section-eyebrow">HOME GROWER DESK</span>
+        <h1 style="font-size:32px; font-weight:800; letter-spacing:-0.5px;" id="growerGardenTitle">
+          My Garden Dashboard
+        </h1>
+        <p style="color:var(--text-muted);" id="growerSubtext">Manage listings, track customer orders, and view earnings.</p>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <a href="/manage-product.html" class="btn btn-primary">? Add Vegetable Listing</a>
+        <button onclick="toggleProfileModal()" class="btn btn-secondary">🪴 Edit Garden Profile</button>
+      </div>
+    </div>
+
+    <!-- EARNINGS SUMMARY CARDS -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:18px; margin-bottom:36px;">
+      <div style="background:#fff; border:1px solid var(--border); border-radius:14px; padding:20px;">
+        <span style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Gross Sales</span>
+        <h2 id="metricGross" style="font-size:28px; font-weight:800; color:var(--primary); margin-top:4px;">₹0</h2>
+        <small style="color:var(--text-light); font-size:11px;">All orders placed</small>
+      </div>
+      <div style="background:#fff; border:1px solid var(--border); border-radius:14px; padding:20px;">
+        <span style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Completed Sales</span>
+        <h2 id="metricCompleted" style="font-size:28px; font-weight:800; color:var(--success); margin-top:4px;">₹0</h2>
+        <small style="color:var(--text-light); font-size:11px;">Delivered orders</small>
+      </div>
+      <div style="background:#fff; border:1px solid var(--border); border-radius:14px; padding:20px;">
+        <span style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Community Fee (5%)</span>
+        <h2 id="metricFee" style="font-size:28px; font-weight:800; color:var(--text-muted); margin-top:4px;">₹0</h2>
+        <small style="color:var(--text-light); font-size:11px;">App maintenance fee</small>
+      </div>
+      <div style="background:var(--sage); border:1px solid rgba(27,67,50,0.15); border-radius:14px; padding:20px;">
+        <span style="font-size:12px; font-weight:800; color:var(--primary); text-transform:uppercase;">Net Earnings</span>
+        <h2 id="metricNet" style="font-size:28px; font-weight:800; color:var(--primary); margin-top:4px;">₹0</h2>
+        <small style="color:var(--primary-light); font-size:11px; font-weight:600;">Disbursed directly</small>
+      </div>
+    </div>
+
+    <!-- INCOMING ORDERS TO FULFILL -->
+    <div style="margin-bottom:40px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 style="font-size:22px; font-weight:800;">Harvest Orders Queue</h2>
+        <span class="badge badge-verified" id="orderCountBadge">0 Orders</span>
+      </div>
+
+      <div class="table-card">
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Order Ref</th>
+                <th>Customer</th>
+                <th>Harvest Items</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Fulfillment Action</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTableBody">
+              <tr>
+                <td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">Loading orders...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MY PRODUCE CATALOG -->
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 style="font-size:22px; font-weight:800;">My Vegetable Listings</h2>
+        <a href="/manage-product.html" class="btn btn-secondary btn-sm">+ New Listing</a>
+      </div>
+
+      <div class="table-card">
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Produce</th>
+                <th>Category</th>
+                <th>Price / Unit</th>
+                <th>Available Stock</th>
+                <th>Tags</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="productsTableBody">
+              <tr>
+                <td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">Loading produce...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- GARDEN PROFILE MODAL -->
+    <div id="profileModal" class="modal-backdrop" style="display:none;">
+      <div class="modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h2 style="font-size:20px; font-weight:800; color:var(--primary);">Edit Garden Profile</h2>
+          <button onclick="toggleProfileModal()" style="border:none; background:none; font-size:20px; cursor:pointer;">✕</button>
+        </div>
+        <form id="profileForm">
+          <div class="form-group">
+            <label for="gardenName">Garden / Terrace Name</label>
+            <input type="text" id="gardenNameInput" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="gardenType">Garden Type</label>
+            <select id="gardenTypeInput" class="form-control">
+              <option value="Terrace Garden">Terrace Garden</option>
+              <option value="Balcony Garden">Balcony Garden</option>
+              <option value="Backyard Garden">Backyard Garden</option>
+              <option value="Community Plot">Community Plot</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="gardenDesc">Garden Description / Story</label>
+            <textarea id="gardenDescInput" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="growingPractices">Growing Practices (comma separated)</label>
+            <input type="text" id="growingPracticesInput" class="form-control" placeholder="e.g. Homemade Vermicompost, Neem Oil, Rainwater">
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+            <button type="button" onclick="toggleProfileModal()" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Profile</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    let currentProfile = null;
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      const user = currentUser();
+      if (!user || !["grower", "admin"].includes(user.role)) {
+        showToast("Access restricted to registered home growers.", "error");
+        setTimeout(() => { location.href = "/login.html"; }, 1000);
+        return;
+      }
+
+      loadEarnings();
+      loadGrowerProfile();
+      loadGrowerOrders();
+      loadMyProducts();
+    });
+
+    async function loadEarnings() {
+      try {
+        const res = await API.get("/api/growers/earnings");
+        const s = res.summary;
+        document.getElementById("metricGross").textContent = `₹${s.grossSales}`;
+        document.getElementById("metricCompleted").textContent = `₹${s.completedSales}`;
+        document.getElementById("metricFee").textContent = `₹${s.estimatedPlatformFees}`;
+        document.getElementById("metricNet").textContent = `₹${s.netEarnings}`;
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    async function loadGrowerProfile() {
+      try {
+        const res = await API.get("/api/auth/me");
+        if (res.growerProfile) {
+          currentProfile = res.growerProfile;
+          document.getElementById("growerGardenTitle").textContent = `${currentProfile.gardenName} ??`;
+          document.getElementById("gardenNameInput").value = currentProfile.gardenName || "";
+          document.getElementById("gardenTypeInput").value = currentProfile.gardenType || "Terrace Garden";
+          document.getElementById("gardenDescInput").value = currentProfile.gardenDescription || "";
+          document.getElementById("growingPracticesInput").value = (currentProfile.growingPractices || []).join(", ");
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    async function loadGrowerOrders() {
+      const tbody = document.getElementById("ordersTableBody");
+      try {
+        const res = await API.get("/api/orders/mine");
+        const orders = res.orders || [];
+        document.getElementById("orderCountBadge").textContent = `${orders.length} Order${orders.length === 1 ? '' : 's'}`;
+
+        if (!orders.length) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">No orders received yet. Keep your listings updated!</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = orders.map(o => {
+          let actionBtn = "";
+          if (o.status === "placed") {
+            actionBtn = `
+              <button onclick="updateOrderStatus('${o._id}', 'accepted')" class="btn btn-primary btn-sm">Accept Order</button>
+              <button onclick="updateOrderStatus('${o._id}', 'cancelled')" class="btn btn-danger btn-sm" style="margin-left:4px;">Decline</button>
+            `;
+          } else if (o.status === "accepted") {
+            actionBtn = `<button onclick="updateOrderStatus('${o._id}', 'preparing')" class="btn btn-sage btn-sm">Harvest & Prepare</button>`;
+          } else if (o.status === "preparing") {
+            actionBtn = `<button onclick="updateOrderStatus('${o._id}', 'ready')" class="btn btn-primary btn-sm">Mark Ready for Pickup</button>`;
+          } else if (o.status === "ready") {
+            actionBtn = `<span style="font-size:12px; color:var(--text-muted); font-weight:600;">Waiting for Delivery Partner 🛵</span>`;
+          } else if (o.status === "out_for_delivery") {
+            actionBtn = `<span style="font-size:12px; color:var(--warning); font-weight:600;">Out for Delivery 🛵</span>`;
+          } else if (o.status === "delivered") {
+            actionBtn = `<span style="font-size:12px; color:var(--success); font-weight:700;">✓ Completed & Paid</span>`;
+          } else if (o.status === "cancelled") {
+            actionBtn = `<span style="font-size:12px; color:var(--danger); font-weight:600;">Cancelled</span>`;
+          }
+
+          return `
+            <tr>
+              <td><strong>#${o._id.slice(-6).toUpperCase()}</strong></td>
+              <td>
+                <strong>${escapeHTML(o.customerId?.name || "Customer")}</strong>
+                <div style="font-size:12px; color:var(--text-muted);">${escapeHTML(o.deliveryAddress)}</div>
+              </td>
+              <td>
+                ${o.items.map(i => `<div style="font-size:13px;">${escapeHTML(i.name)} × ${i.quantity} (${escapeHTML(i.unit)})</div>`).join("")}
+              </td>
+              <td><strong style="color:var(--primary);">₹${o.totalAmount}</strong></td>
+              <td><span class="status-chip status-${o.status}">${o.status.replace(/_/g, " ")}</span></td>
+              <td>${actionBtn}</td>
+            </tr>
+          `;
+        }).join("");
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:var(--danger); text-align:center;">${escapeHTML(e.message)}</td></tr>`;
+      }
+    }
+
+    async function loadMyProducts() {
+      const tbody = document.getElementById("productsTableBody");
+      try {
+        const res = await API.get("/api/products/mine");
+        const products = res.products || [];
+
+        if (!products.length) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">You have not published any produce yet. Click "Add Vegetable Listing" above!</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = products.map(p => {
+          let tags = "";
+          if (p.isSurplus) tags += `<span class="badge badge-surplus" style="font-size:10px;">Surplus</span> `;
+          if (p.isPreOrder) tags += `<span class="badge badge-preorder" style="font-size:10px;">Pre-Order</span> `;
+
+          return `
+            <tr>
+              <td>
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <img src="${escapeHTML(p.image)}" alt="" style="width:48px; height:48px; object-fit:cover; border-radius:8px;" onerror="this.src='https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=100&q=80'">
+                  <div>
+                    <strong>${escapeHTML(p.name)}</strong>
+                    <div style="font-size:11px; color:var(--text-muted);">${formatDate(p.harvestDate)}</div>
+                  </div>
+                </div>
+              </td>
+              <td>${escapeHTML(p.category)}</td>
+              <td><strong>₹${p.price}</strong> / ${escapeHTML(p.unit)}</td>
+              <td>
+                <span style="font-weight:700; ${p.quantity < 3 ? 'color:var(--danger);' : ''}">
+                  ${p.quantity} portions
+                </span>
+              </td>
+              <td>${tags || "Standard"}</td>
+              <td>
+                <div style="display:flex; gap:6px;">
+                  <a href="/manage-product.html?id=${p._id}" class="btn btn-secondary btn-sm">Edit</a>
+                  <button onclick="deleteProduct('${p._id}', '${escapeHTML(p.name)}')" class="btn btn-danger btn-sm">Delete</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:var(--danger); text-align:center;">${escapeHTML(e.message)}</td></tr>`;
+      }
+    }
+
+    async function updateOrderStatus(orderId, nextStatus) {
+      if (nextStatus === "cancelled" && !confirm("Are you sure you want to decline/cancel this order? Stock will be restored.")) {
+        return;
+      }
+
+      try {
+        await API.patch(`/api/orders/${orderId}/status`, { status: nextStatus });
+        showToast(`Order status updated to ${nextStatus}`, "success");
+        loadGrowerOrders();
+        loadEarnings();
+      } catch (e) {
+        // error toast already handled by API client
+      }
+    }
+
+    async function deleteProduct(productId, name) {
+      if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+      try {
+        await API.delete(`/api/products/${productId}`);
+        showToast("Produce listing removed.", "success");
+        loadMyProducts();
+      } catch (e) {
+        // handled
+      }
+    }
+
+    function toggleProfileModal() {
+      const modal = document.getElementById("profileModal");
+      modal.style.display = modal.style.display === "none" ? "flex" : "none";
+    }
+
+    document.getElementById("profileForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const payload = {
+        gardenName: document.getElementById("gardenNameInput").value.trim(),
+        gardenType: document.getElementById("gardenTypeInput").value,
+        gardenDescription: document.getElementById("gardenDescInput").value.trim(),
+        growingPractices: document.getElementById("growingPracticesInput").value.split(",").map(s => s.trim()).filter(Boolean)
+      };
+
+      try {
+        const res = await API.patch("/api/growers/profile", payload);
+        showToast("Garden profile saved!", "success");
+        toggleProfileModal();
+        loadGrowerProfile();
+      } catch (e) {
+        // handled
+      }
+    });
+  </script>
+</body>
+</html>

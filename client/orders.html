@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orders — HomeHarvest</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js" defer></script>
+  <script src="js/navbar.js" defer></script>
+</head>
+<body>
+  <header class="navbar"></header>
+
+  <main class="section">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:28px;">
+      <div>
+        <span class="section-eyebrow">ORDER HISTORY</span>
+        <h1 style="font-size:32px; font-weight:800; letter-spacing:-0.5px;">Harvest Orders</h1>
+      </div>
+      <a href="/explore.html" class="btn btn-secondary btn-sm">Explore More Vegetables</a>
+    </div>
+
+    <div class="table-card">
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Date Placed</th>
+              <th>Items Ordered</th>
+              <th>Delivery Address</th>
+              <th>Total Amount</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="ordersTableBody">
+            <tr>
+              <td colspan="7" style="text-align:center; padding:40px; color:var(--text-muted);">Loading orders...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      const user = currentUser();
+      if (!user) {
+        location.href = "/login.html";
+        return;
+      }
+
+      const tbody = document.getElementById("ordersTableBody");
+
+      try {
+        const res = await API.get("/api/orders/mine");
+        const orders = res.orders || [];
+
+        if (!orders.length) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align:center; padding:60px 20px;">
+                <span style="font-size:40px;">??</span>
+                <h3 style="margin:12px 0 6px;">No orders found</h3>
+                <p style="color:var(--text-muted); font-size:14px; margin-bottom:16px;">Support local gardeners by placing your first order.</p>
+                <a href="/explore.html" class="btn btn-primary btn-sm">Explore Harvests</a>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        tbody.innerHTML = orders.map(o => `
+          <tr>
+            <td><strong>#${o._id.slice(-6).toUpperCase()}</strong></td>
+            <td>${formatDate(o.createdAt)}</td>
+            <td>
+              ${o.items.map(i => `<div style="font-size:13px;">${escapeHTML(i.name)} × ${i.quantity} (${escapeHTML(i.unit)})</div>`).join("")}
+            </td>
+            <td><small style="color:var(--text-muted);">${escapeHTML(o.deliveryAddress ? o.deliveryAddress.slice(0, 35) + '...' : '—')}</small></td>
+            <td><strong style="color:var(--primary); font-size:15px;">₹${o.totalAmount}</strong></td>
+            <td><span class="status-chip status-${o.status}">${o.status.replace(/_/g, " ")}</span></td>
+            <td>
+              <a href="/order-details.html?id=${o._id}" class="btn btn-secondary btn-sm">
+                Track / View
+              </a>
+            </td>
+          </tr>
+        `).join("");
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger); padding:30px;">${escapeHTML(err.message)}</td></tr>`;
+      }
+    });
+  </script>
+</body>
+</html>

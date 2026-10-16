@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Harvest Details — HomeHarvest</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js" defer></script>
+  <script src="js/navbar.js" defer></script>
+</head>
+<body>
+  <header class="navbar"></header>
+
+  <main class="section" id="productContainer">
+    <p style="text-align:center; padding:60px; color:var(--text-muted);">Loading harvest details...</p>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    let currentProduct = null;
+    let selectedQuantity = 1;
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      const params = new URLSearchParams(window.location.search);
+      const productId = params.get("id");
+
+      if (!productId) {
+        location.href = "/explore.html";
+        return;
+      }
+
+      const container = document.getElementById("productContainer");
+
+      try {
+        const data = await API.get(`/api/products/${productId}`);
+        const p = data.product;
+        const profile = data.growerProfile;
+        currentProduct = p;
+
+        document.title = `${p.name} — HomeHarvest`;
+
+        let badges = "";
+        if (p.isSurplus) badges += `<span class="badge badge-surplus">🔥 Surplus Harvest Rescue</span> `;
+        if (p.isPreOrder) badges += `<span class="badge badge-preorder">📅 Pre-Order (Harvest Expected: ${formatDate(p.expectedHarvestDate)})</span> `;
+
+        // Fetch grower reviews
+        let reviewsHtml = `<p style="color:var(--text-muted);">No reviews yet for this grower.</p>`;
+        try {
+          const revRes = await API.get(`/api/reviews/grower/${p.growerId?._id}`);
+          if (revRes.reviews && revRes.reviews.length > 0) {
+            reviewsHtml = revRes.reviews.map(r => `
+              <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                  <strong>${escapeHTML(r.customerId?.name || "Verified Customer")}</strong>
+                  <span style="color:var(--warning); font-weight:700;">${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)}</span>
+                </div>
+                <p style="font-size:14px; color:var(--text-muted);">${escapeHTML(r.comment)}</p>
+                <small style="font-size:11px; color:var(--accent); font-weight:700;">✓ Verified HomeHarvest Purchase · ${formatDate(r.createdAt)}</small>
+              </div>
+            `).join("");
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+
+        container.innerHTML = `
+          <div style="margin-bottom:20px;">
+            <a href="/explore.html" class="btn btn-secondary btn-sm">← Back to Explore</a>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:start;" class="product-detail-layout">
+            <!-- Left: High Res Image -->
+            <div style="position:relative;">
+              <img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" style="width:100%; height:450px; object-fit:cover; border-radius:var(--radius-xl); box-shadow:var(--shadow-md);" onerror="this.src='https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80'">
+              <div style="position:absolute; top:18px; left:18px; display:flex; gap:8px; flex-wrap:wrap;">${badges}</div>
+            </div>
+
+            <!-- Right: Details & Purchase -->
+            <div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                <span class="badge badge-verified">?? Local Harvest</span>
+                <span style="font-size:13px; color:var(--text-muted);">${escapeHTML(p.category)}</span>
+              </div>
+
+              <h1 style="font-size:36px; font-weight:800; letter-spacing:-1px; margin-bottom:12px;">
+                ${escapeHTML(p.name)}
+              </h1>
+
+              <div style="display:flex; align-items:baseline; gap:12px; margin-bottom:20px;">
+                <span style="font-size:36px; font-weight:800; color:var(--primary);">₹${p.price}</span>
+                ${p.originalPrice ? `<span style="font-size:20px; color:var(--text-light); text-decoration:line-through;">₹${p.originalPrice}</span>` : ""}
+                <span style="font-size:16px; color:var(--text-muted);">/ ${escapeHTML(p.unit)}</span>
+              </div>
+
+              <p style="font-size:16px; color:var(--text-muted); line-height:1.7; margin-bottom:24px;">
+                ${escapeHTML(p.description || "Nurtured with organic compost in a neighborhood home garden. Plucked at peak ripeness for full nutrient retention.")}
+              </p>
+
+              <!-- Stock & Harvest Info -->
+              <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:28px; display:flex; gap:20px;">
+                <div>
+                  <small style="color:var(--text-muted); display:block; font-size:11px; text-transform:uppercase;">Availability</small>
+                  <strong>${p.isPreOrder ? 'Upcoming Harvest' : `${p.quantity} portions in stock`}</strong>
+                </div>
+                <div>
+                  <small style="color:var(--text-muted); display:block; font-size:11px; text-transform:uppercase;">Harvest Date</small>
+                  <strong>${formatDate(p.harvestDate)}</strong>
+                </div>
+                <div>
+                  <small style="color:var(--text-muted); display:block; font-size:11px; text-transform:uppercase;">Delivery Speed</small>
+                  <strong>Within 2-4 Hours</strong>
+                </div>
+              </div>
+
+              <!-- Quantity & Add to Cart -->
+              <div style="display:flex; align-items:center; gap:16px; margin-bottom:36px;">
+                <div style="display:flex; align-items:center; border:1px solid var(--border); border-radius:8px; background:#fff;">
+                  <button onclick="changeQty(-1)" style="padding:10px 16px; border:none; background:none; cursor:pointer; font-weight:700; font-size:18px;">-</button>
+                  <span id="qtyDisplay" style="padding:0 12px; font-weight:700;">1</span>
+                  <button onclick="changeQty(1)" style="padding:10px 16px; border:none; background:none; cursor:pointer; font-weight:700; font-size:18px;">+</button>
+                </div>
+
+                <button onclick="handleAddToCart()" class="btn btn-primary btn-lg" style="flex:1;" ${p.quantity < 1 && !p.isPreOrder ? "disabled" : ""}>
+                  ?? Add to Basket
+                </button>
+              </div>
+
+              <!-- Grower Profile Card -->
+              <div style="background:var(--cream); border:1px solid var(--border); border-radius:16px; padding:24px;">
+                <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px;">
+                  <div style="width:48px; height:48px; border-radius:50%; background:var(--sage); color:var(--primary); display:flex; align-items:center; justify-content:center; font-size:24px;">
+                    ?????
+                  </div>
+                  <div>
+                    <h3 style="font-size:18px; color:var(--primary); font-weight:800;">
+                      ${escapeHTML(profile?.gardenName || `${p.growerId?.name}'s Garden`)}
+                    </h3>
+                    <p style="font-size:13px; color:var(--text-muted);">
+                      Grown by ${escapeHTML(p.growerId?.name)} · ${escapeHTML(p.growerId?.neighborhood || profile?.neighborhood || "Local Community")}
+                      ${profile?.verificationStatus === 'verified' ? '<span class="badge badge-verified" style="margin-left:6px; font-size:11px;">✓ Verified Garden</span>' : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <p style="font-size:14px; color:var(--text-muted); margin-bottom:16px;">
+                  ${escapeHTML(profile?.gardenDescription || "Home garden cultivating pure, organic produce for nearby neighbors.")}
+                </p>
+
+                <div style="font-size:13px;">
+                  <strong style="display:block; margin-bottom:6px; color:var(--text);">Transparent Growing Practices:</strong>
+                  <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                    ${(profile?.growingPractices || [p.growingMethod]).map(pr => `<span style="background:#fff; border:1px solid var(--border); padding:3px 10px; border-radius:12px; font-size:12px;">?? ${escapeHTML(pr)}</span>`).join("")}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Reviews Section -->
+          <div style="margin-top:60px; max-width:800px;">
+            <h2 style="font-size:24px; font-weight:800; margin-bottom:18px;">
+              Verified Customer Reviews for ${escapeHTML(p.growerId?.name || "Grower")}
+            </h2>
+            ${reviewsHtml}
+          </div>
+        `;
+      } catch (err) {
+        container.innerHTML = `<p style="text-align:center; padding:60px; color:var(--danger);">Failed to load product: ${escapeHTML(err.message)}</p>`;
+      }
+    });
+
+    function changeQty(delta) {
+      if (!currentProduct) return;
+      const max = currentProduct.isPreOrder ? 20 : (currentProduct.quantity || 1);
+      selectedQuantity = Math.max(1, Math.min(max, selectedQuantity + delta));
+      document.getElementById("qtyDisplay").textContent = selectedQuantity;
+    }
+
+    function handleAddToCart() {
+      if (currentProduct) {
+        addToCart(currentProduct, selectedQuantity);
+      }
+    }
+  </script>
+</body>
+</html>

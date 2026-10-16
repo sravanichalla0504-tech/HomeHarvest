@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Basket — HomeHarvest</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js" defer></script>
+  <script src="js/navbar.js" defer></script>
+</head>
+<body>
+  <header class="navbar"></header>
+
+  <main class="section">
+    <div style="margin-bottom:28px;">
+      <span class="section-eyebrow">FRESH HARVEST BASKET</span>
+      <h1 style="font-size:32px; font-weight:800; letter-spacing:-0.5px;">Your Shopping Basket</h1>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1.8fr 1fr; gap:36px; align-items:start;" id="cartLayout">
+      <!-- Items List -->
+      <div id="cartItemsContainer">
+        <p style="color:var(--text-muted);">Loading basket...</p>
+      </div>
+
+      <!-- Price Breakdown -->
+      <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-lg); padding:26px; box-shadow:var(--shadow-sm);">
+        <h2 style="font-size:20px; font-weight:800; margin-bottom:18px; border-bottom:1px solid var(--border-light); padding-bottom:12px;">
+          Order Summary
+        </h2>
+
+        <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:14px;">
+          <span style="color:var(--text-muted);">Produce Subtotal</span>
+          <strong id="subtotalDisplay">₹0</strong>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:14px;">
+          <span style="color:var(--text-muted);">Neighborhood Delivery Fee</span>
+          <span id="deliveryFeeDisplay">₹30</span>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; margin:18px 0; padding-top:14px; border-top:1px solid var(--border); font-size:18px;">
+          <strong>Total Amount</strong>
+          <strong id="totalDisplay" style="color:var(--primary); font-size:22px;">₹0</strong>
+        </div>
+
+        <div style="background:var(--cream); padding:12px; border-radius:8px; font-size:12px; color:var(--text-muted); margin-bottom:20px;">
+          🛵 <strong>Doorstep Delivery:</strong> Directly collected from local home gardens and delivered to your address.
+        </div>
+
+        <a href="/checkout.html" id="checkoutBtn" class="btn btn-primary btn-lg" style="width:100%; text-align:center;">
+          Proceed to Checkout →
+        </a>
+
+        <div style="text-align:center; margin-top:14px;">
+          <button onclick="clearEntireCart()" style="border:none; background:none; font-size:12px; color:var(--danger); cursor:pointer; font-weight:600;">
+            Clear All Items
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      renderCartView();
+    });
+
+    function renderCartView() {
+      const cart = getCart();
+      const container = document.getElementById("cartItemsContainer");
+      const checkoutBtn = document.getElementById("checkoutBtn");
+
+      if (!cart.length) {
+        container.innerHTML = `
+          <div style="background:#fff; border:1px solid var(--border); border-radius:18px; padding:48px 24px; text-align:center;">
+            <span style="font-size:48px;">🪴</span>
+            <h3 style="margin:14px 0 8px; font-size:22px;">Your harvest basket is empty</h3>
+            <p style="color:var(--text-muted); margin-bottom:24px;">Discover fresh, organic vegetables grown right in your neighborhood.</p>
+            <a href="/explore.html" class="btn btn-primary">Browse Fresh Vegetables</a>
+          </div>
+        `;
+        document.getElementById("subtotalDisplay").textContent = "₹0";
+        document.getElementById("deliveryFeeDisplay").textContent = "₹0";
+        document.getElementById("totalDisplay").textContent = "₹0";
+        checkoutBtn.classList.add("disabled");
+        checkoutBtn.style.pointerEvents = "none";
+        checkoutBtn.style.opacity = "0.5";
+        return;
+      }
+
+      checkoutBtn.classList.remove("disabled");
+      checkoutBtn.style.pointerEvents = "auto";
+      checkoutBtn.style.opacity = "1";
+
+      let subtotal = 0;
+      container.innerHTML = cart.map((item, index) => {
+        const itemTotal = item.price * item.quantity;
+        subtotal += itemTotal;
+
+        return `
+          <div style="background:#fff; border:1px solid var(--border); border-radius:16px; padding:18px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:16px;">
+              <img src="${escapeHTML(item.image)}" alt="" style="width:64px; height:64px; object-fit:cover; border-radius:10px;" onerror="this.src='https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=100&q=80'">
+              <div>
+                <h3 style="font-size:16px; font-weight:700; margin-bottom:4px;">${escapeHTML(item.name)}</h3>
+                <span style="font-size:13px; color:var(--text-muted);">₹${item.price} / ${escapeHTML(item.unit)}</span>
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:20px;">
+              <!-- Quantity Stepper -->
+              <div style="display:flex; align-items:center; border:1px solid var(--border); border-radius:8px; background:var(--cream);">
+                <button onclick="updateItemQuantity(${index}, -1)" style="padding:6px 12px; border:none; background:none; cursor:pointer; font-weight:700;">-</button>
+                <span style="padding:0 10px; font-weight:700; font-size:14px;">${item.quantity}</span>
+                <button onclick="updateItemQuantity(${index}, 1)" style="padding:6px 12px; border:none; background:none; cursor:pointer; font-weight:700;">+</button>
+              </div>
+
+              <div style="min-width:70px; text-align:right;">
+                <strong style="font-size:16px; color:var(--primary);">₹${itemTotal}</strong>
+              </div>
+
+              <button onclick="removeItem(${index})" title="Remove item" style="border:none; background:none; color:var(--danger); font-size:18px; cursor:pointer; padding:6px;">
+                ???
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      const deliveryFee = 30;
+      const finalTotal = subtotal + deliveryFee;
+
+      document.getElementById("subtotalDisplay").textContent = `₹${subtotal}`;
+      document.getElementById("deliveryFeeDisplay").textContent = `₹${deliveryFee}`;
+      document.getElementById("totalDisplay").textContent = `₹${finalTotal}`;
+    }
+
+    function updateItemQuantity(index, delta) {
+      const cart = getCart();
+      if (!cart[index]) return;
+
+      const newQty = cart[index].quantity + delta;
+      if (newQty <= 0) {
+        cart.splice(index, 1);
+      } else {
+        const max = cart[index].isPreOrder ? 20 : (cart[index].maxStock || 50);
+        cart[index].quantity = Math.min(max, newQty);
+      }
+
+      saveCart(cart);
+      renderCartView();
+    }
+
+    function removeItem(index) {
+      const cart = getCart();
+      cart.splice(index, 1);
+      saveCart(cart);
+      renderCartView();
+    }
+
+    function clearEntireCart() {
+      if (!confirm("Are you sure you want to empty your basket?")) return;
+      saveCart([]);
+      renderCartView();
+    }
+  </script>
+</body>
+</html>

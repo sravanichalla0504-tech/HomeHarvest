@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout — HomeHarvest</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js" defer></script>
+  <script src="js/navbar.js" defer></script>
+</head>
+<body>
+  <header class="navbar"></header>
+
+  <main class="section">
+    <div style="margin-bottom:28px;">
+      <span class="section-eyebrow">FINAL STEP</span>
+      <h1 style="font-size:32px; font-weight:800; letter-spacing:-0.5px;">Checkout & Delivery Details</h1>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:36px; align-items:start;">
+      <!-- Delivery Form -->
+      <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-lg); padding:32px; box-shadow:var(--shadow-sm);">
+        <h2 style="font-size:20px; font-weight:800; margin-bottom:20px;">Delivery Address</h2>
+
+        <form id="checkoutForm">
+          <div class="form-group">
+            <label for="deliveryAddress">Complete Street Address</label>
+            <textarea id="deliveryAddress" class="form-control" rows="3" placeholder="House/Flat number, building name, street, landmarks" required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="deliveryPhone">Contact Phone Number</label>
+            <input type="tel" id="deliveryPhone" class="form-control" placeholder="10-digit mobile number" required maxlength="20">
+            <div class="form-helper">Delivery partner will call this number upon arrival.</div>
+          </div>
+
+          <div class="form-group">
+            <label for="deliveryNotes">Special Delivery Instructions (Optional)</label>
+            <input type="text" id="deliveryNotes" class="form-control" placeholder="e.g. Ring bell, leave with security guard, call before coming">
+          </div>
+
+          <div style="background:var(--cream); border:1px solid var(--border); border-radius:12px; padding:18px; margin:24px 0;">
+            <h3 style="font-size:15px; font-weight:700; margin-bottom:8px; color:var(--primary);">Payment Method</h3>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <input type="radio" id="cod" name="payment" checked>
+              <label for="cod" style="font-weight:700; cursor:pointer;">
+                💵 Cash on Delivery (COD) / Pay upon Garden Delivery
+              </label>
+            </div>
+            <p style="font-size:12px; color:var(--text-muted); margin-top:6px; margin-left:24px;">
+              Pay directly to the local delivery partner when your fresh harvest arrives at your doorstep.
+            </p>
+          </div>
+
+          <button type="submit" id="placeOrderBtn" class="btn btn-primary btn-lg" style="width:100%;">
+            Confirm & Place Harvest Order →
+          </button>
+        </form>
+      </div>
+
+      <!-- Order Review Sidebar -->
+      <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-lg); padding:26px; box-shadow:var(--shadow-sm);">
+        <h2 style="font-size:20px; font-weight:800; margin-bottom:16px;">Items in Order</h2>
+        <div id="checkoutItemsList" style="max-height:300px; overflow-y:auto; margin-bottom:20px; border-bottom:1px solid var(--border-light); padding-bottom:14px;">
+          <!-- items injected here -->
+        </div>
+
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:14px;">
+          <span style="color:var(--text-muted);">Subtotal</span>
+          <strong id="ckSubtotal">₹0</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:14px;">
+          <span style="color:var(--text-muted);">Delivery Fee</span>
+          <span>₹30</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-top:16px; padding-top:14px; border-top:1px solid var(--border); font-size:18px;">
+          <strong>Total to Pay</strong>
+          <strong id="ckTotal" style="color:var(--primary); font-size:22px;">₹0</strong>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const user = currentUser();
+      if (!user) {
+        showToast("Please log in or register before checking out.", "info");
+        setTimeout(() => { location.href = "/login.html"; }, 1000);
+        return;
+      }
+
+      const cart = getCart();
+      if (!cart.length) {
+        location.href = "/cart.html";
+        return;
+      }
+
+      // Pre-fill user address and phone if available
+      if (user.address) document.getElementById("deliveryAddress").value = user.address;
+      if (user.phone) document.getElementById("deliveryPhone").value = user.phone;
+
+      renderCheckoutSidebar(cart);
+
+      document.getElementById("checkoutForm").addEventListener("submit", async e => {
+        e.preventDefault();
+        const btn = document.getElementById("placeOrderBtn");
+        btn.disabled = true;
+        btn.textContent = "Placing Order...";
+
+        const payload = {
+          items: cart.map(i => ({ productId: i.productId, quantity: i.quantity, name: i.name })),
+          deliveryAddress: document.getElementById("deliveryAddress").value.trim(),
+          deliveryPhone: document.getElementById("deliveryPhone").value.trim(),
+          deliveryNotes: document.getElementById("deliveryNotes").value.trim()
+        };
+
+        try {
+          const res = await API.post("/api/orders", payload);
+          // Clear cart
+          saveCart([]);
+          showToast("Order placed successfully!", "success");
+          setTimeout(() => {
+            location.href = `/order-details.html?id=${res.order._id}`;
+          }, 800);
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = "Confirm & Place Harvest Order →";
+        }
+      });
+    });
+
+    function renderCheckoutSidebar(cart) {
+      const list = document.getElementById("checkoutItemsList");
+      let subtotal = 0;
+
+      list.innerHTML = cart.map(item => {
+        const itemTotal = item.price * item.quantity;
+        subtotal += itemTotal;
+        return `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:14px;">
+            <div>
+              <strong>${escapeHTML(item.name)}</strong>
+              <div style="font-size:12px; color:var(--text-muted);">${item.quantity} × ₹${item.price}</div>
+            </div>
+            <strong>₹${itemTotal}</strong>
+          </div>
+        `;
+      }).join("");
+
+      document.getElementById("ckSubtotal").textContent = `₹${subtotal}`;
+      document.getElementById("ckTotal").textContent = `₹${subtotal + 30}`;
+    }
+  </script>
+</body>
+</html>

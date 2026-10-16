@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — HomeHarvest</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js" defer></script>
+  <script src="js/navbar.js" defer></script>
+</head>
+<body>
+  <header class="navbar"></header>
+
+  <main class="section">
+    <div class="form-container">
+      <div class="form-header">
+        <span style="font-size:36px;">🛒</span>
+        <h1>Welcome Back</h1>
+        <p style="color:var(--text-muted); font-size:14px;">Log in to access your HomeHarvest account.</p>
+      </div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" class="form-control" placeholder="name@example.com" required autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+
+        <button type="submit" id="loginBtn" class="btn btn-primary btn-lg" style="width:100%; margin-top:10px;">
+          Log In
+        </button>
+
+        <!-- Quick 1-Click Demo Buttons for Fast Testing -->
+        <div class="quick-demo-box">
+          <p>⚡ Quick Test Credentials (1-Click Fill)</p>
+          <div class="quick-buttons">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="quickFill('priya@homeharvest.local', 'Grower@123')">
+              ???👩‍🌾 Home Grower (Priya)
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="quickFill('sneha@homeharvest.local', 'Customer@123')">
+              🥬 Customer (Sneha)
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="quickFill('ramesh@homeharvest.local', 'Delivery@123')">
+              🛵 Delivery Partner (Ramesh)
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="quickFill('admin@homeharvest.local', 'Admin@123')">
+              ?🛡️ Administrator
+            </button>
+          </div>
+        </div>
+
+        <p style="text-align:center; font-size:13px; color:var(--text-muted); margin-top:20px;">
+          New to HomeHarvest? <a href="/register.html" style="color:var(--primary); font-weight:700;">Join your local community</a>
+        </p>
+      </form>
+    </div>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    function quickFill(email, password) {
+      document.getElementById("email").value = email;
+      document.getElementById("password").value = password;
+      showToast(`Selected demo account: ${email}`, "info");
+    }
+
+    document.getElementById("loginForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const loginBtn = document.getElementById("loginBtn");
+      loginBtn.disabled = true;
+      loginBtn.textContent = "Signing In...";
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      try {
+        const res = await API.post("/api/auth/login", { email, password });
+        saveSession(res);
+        showToast(`Welcome back, ${res.user.name}!`, "success");
+        setTimeout(() => { location.href = "/dashboard.html"; }, 800);
+      } catch (err) {
+        loginBtn.disabled = false;
+        loginBtn.textContent = "Log In";
+      }
+    });
+  </script>
+</body>
+</html>

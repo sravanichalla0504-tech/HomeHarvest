@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Explore Vegetables — HomeHarvest</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js" defer></script>
+  <script src="js/navbar.js" defer></script>
+</head>
+<body>
+  <header class="navbar"></header>
+
+  <main class="section">
+    <div style="margin-bottom:28px;">
+      <span class="section-eyebrow">HYPERLOCAL HARVESTS</span>
+      <h1 style="font-size:36px; font-weight:800; letter-spacing:-1px; margin-bottom:8px;">
+        Explore Neighborhood Vegetables
+      </h1>
+      <p style="color:var(--text-muted); max-width:600px;">
+        Plucked fresh from home gardens in your vicinity. Filter by harvest date, organic practices, or rescue surplus produce.
+      </p>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filters-bar">
+      <div class="search-row">
+        <div class="search-input-wrap">
+          <span class="search-icon">??</span>
+          <input type="search" id="searchInput" placeholder="Search vegetables, spinach, mint, tomatoes..." autocomplete="off">
+        </div>
+        <div class="filter-selects">
+          <select id="neighborhoodFilter">
+            <option value="all">All Neighborhoods</option>
+            <option value="Indiranagar">Indiranagar</option>
+            <option value="Koramangala">Koramangala</option>
+            <option value="Central City">Central City</option>
+          </select>
+          <select id="sortSelect">
+            <option value="harvest_recent">Harvest: Most Recent</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+            <option value="name_asc">Name: A to Z</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="filter-pills" id="categoryPills">
+        <button class="filter-pill active" data-category="all">All Produce</button>
+        <button class="filter-pill" data-category="Leafy Greens">?🥬 Leafy Greens</button>
+        <button class="filter-pill" data-category="Vegetables">?🍅 Vegetables</button>
+        <button class="filter-pill" data-category="Herbs">?🌿 Fresh Herbs</button>
+        <button class="filter-pill" data-category="Root Vegetables">?🥕 Root Veggies</button>
+        <button class="filter-pill" data-category="Gourds">?🥒 Gourds</button>
+      </div>
+
+      <!-- Toggles for Surplus & Pre-order -->
+      <div class="filter-toggles">
+        <label class="toggle-label">
+          <input type="checkbox" id="surplusCheck">
+          <span>🔥 Surplus Harvest Rescue (Discounted)</span>
+        </label>
+        <label class="toggle-label">
+          <input type="checkbox" id="preOrderCheck">
+          <span>📅 Upcoming Pre-Orders</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- PRODUCT COUNT & STATUS -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <p id="resultsStatus" style="font-weight:600; color:var(--text-muted);">Finding fresh produce...</p>
+    </div>
+
+    <!-- PRODUCT GRID -->
+    <div class="product-grid" id="exploreGrid">
+      <p style="grid-column:1/-1; text-align:center; padding:40px; color:var(--text-muted);">Loading harvests...</p>
+    </div>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    let activeCategory = "all";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // Parse URL parameters if any (e.g. ?isSurplus=true)
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("isSurplus") === "true") {
+        document.getElementById("surplusCheck").checked = true;
+      }
+      if (params.get("category")) {
+        activeCategory = params.get("category");
+      }
+
+      setupFilterEvents();
+      fetchVegetables();
+    });
+
+    function setupFilterEvents() {
+      // Search input debounced
+      let timer;
+      document.getElementById("searchInput").addEventListener("input", () => {
+        clearTimeout(timer);
+        timer = setTimeout(fetchVegetables, 250);
+      });
+
+      document.getElementById("neighborhoodFilter").addEventListener("change", fetchVegetables);
+      document.getElementById("sortSelect").addEventListener("change", fetchVegetables);
+      document.getElementById("surplusCheck").addEventListener("change", fetchVegetables);
+      document.getElementById("preOrderCheck").addEventListener("change", fetchVegetables);
+
+      // Category pills
+      document.querySelectorAll(".filter-pill").forEach(pill => {
+        if (pill.dataset.category === activeCategory) {
+          document.querySelectorAll(".filter-pill").forEach(p => p.classList.remove("active"));
+          pill.classList.add("active");
+        }
+        pill.addEventListener("click", () => {
+          document.querySelectorAll(".filter-pill").forEach(p => p.classList.remove("active"));
+          pill.classList.add("active");
+          activeCategory = pill.dataset.category;
+          fetchVegetables();
+        });
+      });
+    }
+
+    async function fetchVegetables() {
+      const q = document.getElementById("searchInput").value.trim();
+      const neighborhood = document.getElementById("neighborhoodFilter").value;
+      const sort = document.getElementById("sortSelect").value;
+      const isSurplus = document.getElementById("surplusCheck").checked;
+      const isPreOrder = document.getElementById("preOrderCheck").checked;
+
+      const queryParams = new URLSearchParams();
+      if (q) queryParams.set("q", q);
+      if (activeCategory !== "all") queryParams.set("category", activeCategory);
+      if (neighborhood !== "all") queryParams.set("neighborhood", neighborhood);
+      if (sort) queryParams.set("sort", sort);
+      if (isSurplus) queryParams.set("isSurplus", "true");
+      if (isPreOrder) queryParams.set("isPreOrder", "true");
+
+      const statusEl = document.getElementById("resultsStatus");
+      const grid = document.getElementById("exploreGrid");
+      grid.innerHTML = `<p style="grid-column:1/-1; text-align:center; padding:40px; color:var(--text-muted);">Refreshing produce...</p>`;
+
+      try {
+        const res = await API.get(`/api/products₹${queryParams.toString()}`);
+        const products = res.products || [];
+
+        statusEl.textContent = `Showing ${products.length} home-grown harvest${products.length === 1 ? '' : 's'}`;
+
+        if (!products.length) {
+          grid.innerHTML = `
+            <div style="grid-column:1/-1; text-align:center; padding:60px 20px; background:#fff; border-radius:18px; border:1px solid var(--border);">
+              <span style="font-size:48px;">🪴</span>
+              <h3 style="margin:12px 0 6px; font-size:20px;">No vegetables found matching your filters</h3>
+              <p style="color:var(--text-muted); margin-bottom:20px;">Try clearing filters or checking another neighborhood.</p>
+              <button onclick="clearFilters()" class="btn btn-secondary">Reset Filters</button>
+            </div>
+          `;
+          return;
+        }
+
+        grid.innerHTML = "";
+        products.forEach(p => {
+          const card = document.createElement("article");
+          card.className = "product-card";
+
+          let badges = "";
+          if (p.isSurplus) badges += `<span class="badge badge-surplus">?? Surplus Rescue</span>`;
+          if (p.isPreOrder) badges += `<span class="badge badge-preorder">📅 Pre-Order</span>`;
+
+          card.innerHTML = `
+            <div class="product-thumb-wrap">
+              <img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" class="product-thumb" onerror="this.src='https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=500&q=80'">
+              <div class="product-badges">${badges}</div>
+            </div>
+            <div class="product-body">
+              <div class="grower-meta">
+                <span class="grower-name">🌱 ${escapeHTML(p.growerId?.name || "Home Grower")}</span>
+                <span>${escapeHTML(p.growerId?.neighborhood || "Nearby")}</span>
+              </div>
+              <h3 class="product-title">${escapeHTML(p.name)}</h3>
+              <div class="product-practice">🌾 ${escapeHTML(p.growingMethod)}</div>
+              <div class="product-pricing">
+                <span class="price-main">₹${p.price}</span>
+                ${p.originalPrice ? `<span class="price-original">₹${p.originalPrice}</span>` : ""}
+                <span class="price-unit">/ ${escapeHTML(p.unit)}</span>
+              </div>
+              <div class="product-footer">
+                <span class="stock-pill ${p.quantity < 3 ? 'low' : ''}">${p.isPreOrder ? 'Upcoming Harvest' : `${p.quantity} available`}</span>
+                <div style="display:flex; gap:8px;">
+                  <a href="/product-details.html?id=${p._id}" class="btn btn-secondary btn-sm">Details</a>
+                  <button class="btn btn-primary btn-sm add-btn" ${p.quantity < 1 && !p.isPreOrder ? "disabled" : ""}>
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+
+          card.querySelector(".add-btn").addEventListener("click", () => addToCart(p));
+          grid.appendChild(card);
+        });
+      } catch (err) {
+        grid.innerHTML = `<p style="grid-column:1/-1; text-align:center; color:var(--danger); padding:40px;">Failed to load vegetables: ${escapeHTML(err.message)}</p>`;
+      }
+    }
+
+    function clearFilters() {
+      document.getElementById("searchInput").value = "";
+      document.getElementById("neighborhoodFilter").value = "all";
+      document.getElementById("surplusCheck").checked = false;
+      document.getElementById("preOrderCheck").checked = false;
+      activeCategory = "all";
+      document.querySelectorAll(".filter-pill").forEach(p => p.classList.remove("active"));
+      document.querySelector(".filter-pill[data-category='all']").classList.add("active");
+      fetchVegetables();
+    }
+  </script>
+</body>
+</html>

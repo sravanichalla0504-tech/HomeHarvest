@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Produce — HomeHarvest</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js" defer></script>
+  <script src="js/navbar.js" defer></script>
+</head>
+<body>
+  <header class="navbar"></header>
+
+  <main class="section">
+    <div class="form-container" style="max-width:680px;">
+      <div style="margin-bottom:20px;">
+        <a href="/grower-dashboard.html" class="btn btn-secondary btn-sm">← Back to Grower Portal</a>
+      </div>
+
+      <div class="form-header" style="text-align:left;">
+        <span style="font-size:32px;">🪴</span>
+        <h1 id="pageTitle" style="font-size:28px;">Add Vegetable Listing</h1>
+        <p style="color:var(--text-muted); font-size:14px;">Publish fresh produce harvested from your home garden or terrace.</p>
+      </div>
+
+      <form id="productForm">
+        <div class="form-group">
+          <label for="name">Produce Name</label>
+          <input type="text" id="name" class="form-control" placeholder="e.g. Heirloom Cherry Tomatoes, Country Spinach" required maxlength="100">
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div class="form-group">
+            <label for="category">Category</label>
+            <select id="category" class="form-control" required>
+              <option value="Vegetables">Vegetables</option>
+              <option value="Leafy Greens">Leafy Greens</option>
+              <option value="Herbs">Fresh Herbs</option>
+              <option value="Root Vegetables">Root Vegetables</option>
+              <option value="Gourds">Gourds</option>
+              <option value="Seasonal Specials">Seasonal Specials</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="unit">Selling Unit</label>
+            <select id="unit" class="form-control" required>
+              <option value="500 g">500 g</option>
+              <option value="1 kg">1 kg</option>
+              <option value="250 g bunch">250 g bunch</option>
+              <option value="1 bunch">1 bunch</option>
+              <option value="Combo bunch">Combo bunch</option>
+              <option value="1 piece">1 piece</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div class="form-group">
+            <label for="price">Price (₹)</label>
+            <input type="number" id="price" class="form-control" min="1" step="1" placeholder="e.g. 50" required>
+          </div>
+          <div class="form-group">
+            <label for="quantity">Available Quantity (Units)</label>
+            <input type="number" id="quantity" class="form-control" min="0" step="1" placeholder="e.g. 10" required>
+          </div>
+        </div>
+
+        <!-- Surplus Harvest Rescue Box -->
+        <div style="background:var(--cream); border:1px solid #ffd0d6; border-radius:12px; padding:16px; margin-bottom:18px;">
+          <label class="toggle-label" style="font-weight:700; color:#c9184a;">
+            <input type="checkbox" id="isSurplus">
+            <span>🔥 Surplus Harvest Rescue (Discounted Produce)</span>
+          </label>
+          <div id="surplusFields" style="display:none; margin-top:12px;">
+            <label for="originalPrice" style="font-size:12px; font-weight:700;">Original Regular Price (₹)</label>
+            <input type="number" id="originalPrice" class="form-control" min="1" placeholder="e.g. 70">
+            <div class="form-helper">The current price will be highlighted as a community food-waste discount!</div>
+          </div>
+        </div>
+
+        <!-- Pre-Order Box -->
+        <div style="background:var(--cream); border:1px solid #c7d2fe; border-radius:12px; padding:16px; margin-bottom:18px;">
+          <label class="toggle-label" style="font-weight:700; color:#4361ee;">
+            <input type="checkbox" id="isPreOrder">
+            <span>📅 Upcoming Harvest Pre-Order</span>
+          </label>
+          <div id="preOrderFields" style="display:none; margin-top:12px;">
+            <label for="expectedHarvestDate" style="font-size:12px; font-weight:700;">Expected Harvest Date</label>
+            <input type="date" id="expectedHarvestDate" class="form-control">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Harvest Description</label>
+          <textarea id="description" class="form-control" placeholder="Describe the freshness, taste, and when it was plucked..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="growingMethod">Growing Practices Used</label>
+          <input type="text" id="growingMethod" class="form-control" value="Natural terrace compost, zero synthetic pesticides" required>
+        </div>
+
+        <div class="form-group">
+          <label for="image">Produce Photo URL</label>
+          <input type="url" id="image" class="form-control" placeholder="https://..." value="https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80">
+          <div class="form-helper">Paste an image link or leave default photo.</div>
+        </div>
+
+        <button type="submit" id="saveBtn" class="btn btn-primary btn-lg" style="width:100%; margin-top:10px;">
+          Publish Harvest Listing
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <footer class="footer"></footer>
+
+  <script>
+    let editId = null;
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      const user = currentUser();
+      if (!user || !["grower", "admin"].includes(user.role)) {
+        location.href = "/login.html";
+        return;
+      }
+
+      // Check for edit mode
+      const params = new URLSearchParams(window.location.search);
+      editId = params.get("id");
+
+      // Setup toggles
+      document.getElementById("isSurplus").addEventListener("change", e => {
+        document.getElementById("surplusFields").style.display = e.target.checked ? "block" : "none";
+      });
+      document.getElementById("isPreOrder").addEventListener("change", e => {
+        document.getElementById("preOrderFields").style.display = e.target.checked ? "block" : "none";
+      });
+
+      if (editId) {
+        document.getElementById("pageTitle").textContent = "Edit Produce Listing";
+        document.getElementById("saveBtn").textContent = "Update Produce Listing";
+        try {
+          const res = await API.get(`/api/products/${editId}`);
+          const p = res.product;
+          document.getElementById("name").value = p.name || "";
+          document.getElementById("category").value = p.category || "Vegetables";
+          document.getElementById("unit").value = p.unit || "500 g";
+          document.getElementById("price").value = p.price || "";
+          document.getElementById("quantity").value = p.quantity ?? "";
+          document.getElementById("description").value = p.description || "";
+          document.getElementById("growingMethod").value = p.growingMethod || "";
+          document.getElementById("image").value = p.image || "";
+
+          if (p.isSurplus) {
+            document.getElementById("isSurplus").checked = true;
+            document.getElementById("surplusFields").style.display = "block";
+            document.getElementById("originalPrice").value = p.originalPrice || "";
+          }
+
+          if (p.isPreOrder) {
+            document.getElementById("isPreOrder").checked = true;
+            document.getElementById("preOrderFields").style.display = "block";
+            if (p.expectedHarvestDate) {
+              document.getElementById("expectedHarvestDate").value = p.expectedHarvestDate.split("T")[0];
+            }
+          }
+        } catch (e) {
+          showToast("Failed to load produce for editing", "error");
+        }
+      }
+
+      document.getElementById("productForm").addEventListener("submit", async e => {
+        e.preventDefault();
+        const saveBtn = document.getElementById("saveBtn");
+        saveBtn.disabled = true;
+
+        const payload = {
+          name: document.getElementById("name").value.trim(),
+          category: document.getElementById("category").value,
+          unit: document.getElementById("unit").value,
+          price: Number(document.getElementById("price").value),
+          quantity: Number(document.getElementById("quantity").value),
+          description: document.getElementById("description").value.trim(),
+          growingMethod: document.getElementById("growingMethod").value.trim(),
+          image: document.getElementById("image").value.trim(),
+          isSurplus: document.getElementById("isSurplus").checked,
+          originalPrice: document.getElementById("originalPrice").value ? Number(document.getElementById("originalPrice").value) : null,
+          isPreOrder: document.getElementById("isPreOrder").checked,
+          expectedHarvestDate: document.getElementById("expectedHarvestDate").value || null
+        };
+
+        try {
+          if (editId) {
+            await API.patch(`/api/products/${editId}`, payload);
+            showToast("Produce listing updated!", "success");
+          } else {
+            await API.post("/api/products", payload);
+            showToast("Produce published to neighborhood marketplace!", "success");
+          }
+          setTimeout(() => { location.href = "/grower-dashboard.html"; }, 800);
+        } catch (err) {
+          saveBtn.disabled = false;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

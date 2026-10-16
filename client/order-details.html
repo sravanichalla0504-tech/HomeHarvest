@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Tracking — HomeHarvest</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js" defer></script>
+  <script src="js/navbar.js" defer></script>
+</head>
+<body>
+  <header class="navbar"></header>
+
+  <main class="section" id="orderDetailsMain">
+    <p style="text-align:center; padding:60px; color:var(--text-muted);">Loading order tracker...</p>
+  </main>
+
+  <!-- Verified Review Modal -->
+  <div id="reviewModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 style="font-size:20px; font-weight:800; color:var(--primary);">Write Verified Review</h2>
+        <button onclick="toggleReviewModal()" style="border:none; background:none; font-size:20px; cursor:pointer;">✕</button>
+      </div>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
+        Your review directly supports women home gardeners in your neighborhood.
+      </p>
+      <form id="reviewForm">
+        <input type="hidden" id="revOrderId">
+        <input type="hidden" id="revGrowerId">
+
+        <div class="form-group">
+          <label>Rating</label>
+          <select id="revRating" class="form-control" required>
+            <option value="5">★★★★★ — Exceptional Freshness (5/5)</option>
+            <option value="4">★★★★☆ — Very Good & Crisp (4/5)</option>
+            <option value="3">★★★☆☆ — Average Harvest (3/5)</option>
+            <option value="2">★★☆☆☆ — Below Expectations (2/5)</option>
+            <option value="1">★☆☆☆☆ — Poor Quality (1/5)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="revComment">Comment</label>
+          <textarea id="revComment" class="form-control" placeholder="Describe the aroma, crunch, and delivery experience..." required rows="3"></textarea>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <button type="button" onclick="toggleReviewModal()" class="btn btn-secondary">Cancel</button>
+          <button type="submit" id="submitReviewBtn" class="btn btn-primary">Submit Verified Review</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="footer"></footer>
+
+  <script>
+    let currentOrder = null;
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      const user = currentUser();
+      if (!user) {
+        location.href = "/login.html";
+        return;
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const orderId = params.get("id");
+      if (!orderId) {
+        location.href = "/orders.html";
+        return;
+      }
+
+      loadOrderDetails(orderId);
+    });
+
+    async function loadOrderDetails(orderId) {
+      const main = document.getElementById("orderDetailsMain");
+
+      try {
+        const res = await API.get(`/api/orders/${orderId}`);
+        const order = res.order;
+        const delivery = res.delivery;
+        const canCancel = res.canCancel;
+        currentOrder = order;
+
+        // Steps in visual tracking timeline
+        const steps = [
+          { key: "placed", label: "Order Placed" },
+          { key: "accepted", label: "Harvest Confirmed" },
+          { key: "preparing", label: "Plucking & Packing" },
+          { key: "ready", label: "Ready for Delivery" },
+          { key: "out_for_delivery", label: "Out for Delivery" },
+          { key: "delivered", label: "Delivered Fresh" }
+        ];
+
+        const stepKeys = steps.map(s => s.key);
+        const currentIndex = stepKeys.indexOf(order.status);
+        const isCancelled = order.status === "cancelled";
+
+        let timelineHtml = "";
+        if (isCancelled) {
+          timelineHtml = `
+            <div style="background:var(--danger-light); color:var(--danger); padding:16px 20px; border-radius:12px; margin:24px 0; font-weight:700;">
+              ❌ This order was cancelled. Reason: ${escapeHTML(order.cancellationReason || "Cancelled")}
+            </div>
+          `;
+        } else {
+          timelineHtml = `
+            <div class="timeline">
+              ${steps.map((s, idx) => {
+                let stateClass = "";
+                if (idx < currentIndex) stateClass = "completed";
+                else if (idx === currentIndex) stateClass = "active";
+                return `
+                  <div class="timeline-step ${stateClass}">
+                    <div class="timeline-dot">${idx < currentIndex ? "✓" : idx + 1}</div>
+                    <div class="timeline-label">${s.label}</div>
+                  </div>
+                `;
+              }).join("")}
+            </div>
+          `;
+        }
+
+        // Delivery Partner Info
+        let deliveryCard = "";
+        if (delivery && delivery.deliveryPartnerId) {
+          deliveryCard = `
+            <div style="background:var(--cream); border:1px solid var(--border); border-radius:14px; padding:20px; margin-top:24px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:28px;">🛵</span>
+                <div>
+                  <h4 style="font-size:16px; color:var(--primary); font-weight:800;">Assigned Delivery Partner</h4>
+                  <p style="font-size:13px; color:var(--text-muted);">${escapeHTML(delivery.deliveryPartnerId.name)} · 📞 ${escapeHTML(delivery.deliveryPartnerId.phone || "Available in app")}</p>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        main.innerHTML = `
+          <div style="margin-bottom:20px;">
+            <a href="/orders.html" class="btn btn-secondary btn-sm">← Back to Orders</a>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
+            <div>
+              <span class="section-eyebrow">ORDER REFERENCE</span>
+              <h1 style="font-size:30px; font-weight:800;">Order #${order._id.slice(-6).toUpperCase()}</h1>
+              <p style="font-size:13px; color:var(--text-muted);">Placed on ${new Date(order.createdAt).toLocaleString()}</p>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="status-chip status-${order.status}" style="font-size:14px; padding:6px 16px;">
+                ${order.status.replace(/_/g, " ")}
+              </span>
+              ${canCancel ? `<button onclick="cancelOrder('${order._id}')" class="btn btn-danger btn-sm">Cancel Order</button>` : ""}
+            </div>
+          </div>
+
+          <!-- Timeline -->
+          ${timelineHtml}
+
+          <div style="display:grid; grid-template-columns:1.8fr 1fr; gap:36px; align-items:start; margin-top:36px;">
+            <!-- Order Items -->
+            <div class="table-card">
+              <div style="padding:18px 24px; border-bottom:1px solid var(--border); font-weight:800;">
+                Ordered Produce Items
+              </div>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Produce</th>
+                      <th>Grower</th>
+                      <th>Qty</th>
+                      <th>Item Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${order.items.map(item => `
+                      <tr>
+                        <td>
+                          <strong>${escapeHTML(item.name)}</strong>
+                          <div style="font-size:12px; color:var(--text-muted);">₹${item.price} / ${escapeHTML(item.unit)}</div>
+                        </td>
+                        <td>${escapeHTML(item.growerId?.name || "Home Grower")}</td>
+                        <td>${item.quantity}</td>
+                        <td><strong>₹${item.itemSubtotal}</strong></td>
+                      </tr>
+                    `).join("")}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Receipt & Actions -->
+            <div>
+              <div style="background:#fff; border:1px solid var(--border); border-radius:16px; padding:24px; box-shadow:var(--shadow-sm);">
+                <h3 style="font-size:18px; font-weight:800; margin-bottom:16px; border-bottom:1px solid var(--border-light); padding-bottom:10px;">
+                  Receipt & Delivery
+                </h3>
+                <div style="font-size:13px; margin-bottom:14px;">
+                  <strong style="display:block; color:var(--text-muted); text-transform:uppercase; font-size:11px;">Delivery Address</strong>
+                  <p style="margin-top:2px;">${escapeHTML(order.deliveryAddress)}</p>
+                </div>
+                <div style="font-size:13px; margin-bottom:14px;">
+                  <strong style="display:block; color:var(--text-muted); text-transform:uppercase; font-size:11px;">Payment Mode</strong>
+                  <p style="margin-top:2px;">💵 Cash on Delivery (${order.paymentStatus === 'paid' ? 'Paid ✓' : 'Pending'})</p>
+                </div>
+
+                <div style="border-top:1px solid var(--border); padding-top:14px; margin-top:14px;">
+                  <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px;">
+                    <span>Subtotal</span>
+                    <strong>₹${order.subtotal}</strong>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:10px;">
+                    <span>Delivery Charge</span>
+                    <span>₹${order.deliveryFee}</span>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; font-size:17px; padding-top:10px; border-top:1px solid var(--border-light);">
+                    <strong>Total Amount</strong>
+                    <strong style="color:var(--primary);">₹${order.totalAmount}</strong>
+                  </div>
+                </div>
+
+                <!-- Verified Review Button (when delivered) -->
+                ${order.status === "delivered" ? `
+                  <button onclick="openReviewModal('${order._id}', '${order.items[0]?.growerId?._id || ''}')" class="btn btn-sage" style="width:100%; margin-top:20px;">
+                    ⭐ Leave Verified Harvest Review
+                  </button>
+                ` : ""}
+              </div>
+
+              ${deliveryCard}
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        main.innerHTML = `<p style="text-align:center; padding:60px; color:var(--danger);">${escapeHTML(err.message)}</p>`;
+      }
+    }
+
+    async function cancelOrder(orderId) {
+      if (!confirm("Are you sure you want to cancel this order?")) return;
+      try {
+        await API.patch(`/api/orders/${orderId}/status`, { status: "cancelled", cancellationReason: "Cancelled by customer" });
+        showToast("Order has been cancelled.", "info");
+        loadOrderDetails(orderId);
+      } catch (e) {
+        // handled
+      }
+    }
+
+    function openReviewModal(orderId, growerId) {
+      document.getElementById("revOrderId").value = orderId;
+      document.getElementById("revGrowerId").value = growerId;
+      document.getElementById("reviewModal").style.display = "flex";
+    }
+
+    function toggleReviewModal() {
+      const modal = document.getElementById("reviewModal");
+      modal.style.display = modal.style.display === "none" ? "flex" : "none";
+    }
+
+    document.getElementById("reviewForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const payload = {
+        orderId: document.getElementById("revOrderId").value,
+        growerId: document.getElementById("revGrowerId").value,
+        rating: Number(document.getElementById("revRating").value),
+        comment: document.getElementById("revComment").value.trim()
+      };
+
+      try {
+        await API.post("/api/reviews", payload);
+        showToast("Review submitted! Thank you for supporting local growers.", "success");
+        toggleReviewModal();
+      } catch (e) {
+        // handled
+      }
+    });
+  </script>
+</body>
+</html>
